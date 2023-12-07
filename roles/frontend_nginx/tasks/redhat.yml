@@ -1,0 +1,51 @@
+- name: Install nginx
+  ansible.builtin.yum:
+    name: nginx
+    state: present
+- name: Install packages required for setsebool
+  ansible.builtin.yum:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - libselinux-python
+    - libsemanage-python
+- set_fact:
+    kibana_server: "{{ hostvars[item]['ansible_host'] }}"
+  with_items: "{{ groups.logging }}"
+- set_fact:
+    grafana_server: "{{ hostvars[item]['ansible_host'] }}"
+  with_items: "{{ groups.monitoring }}"
+- name: Copy cert from control node
+  ansible.builtin.copy:
+    src: "files/certs/"
+    dest: "/etc/ssl/certs/"
+- name: Apply default.conf
+  template:
+    src: "nginx.conf.j2"
+    dest: "/etc/nginx/conf.d/default.conf"
+  notify: Reload nginx
+- name: Ensure web server is enabled and launched
+  ansible.builtin.systemd:
+    name: nginx.service
+    enabled: yes
+- name: Enable firewalld
+  ansible.builtin.systemd:
+    name: firewalld
+    enabled: yes
+    state: started
+- name: Set httpd_can_network_connect flag on and keep it persistent across reboots
+  ansible.posix.seboolean:
+    name: httpd_can_network_connect
+    state: true
+    persistent: true
+# - name: hacky - setsebool httpd_can_network_connect
+#   ansible.builtin.command: setsebool -P httpd_can_network_connect 1
+- name: Add firewall services
+  ansible.posix.firewalld:
+    service: "{{ item }}"
+    permanent: yes
+    immediate: yes
+    state: enabled
+  with_items:
+    - http
+    - https

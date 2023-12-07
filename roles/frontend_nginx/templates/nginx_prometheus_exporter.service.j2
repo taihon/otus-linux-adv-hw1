@@ -1,0 +1,15 @@
+[Unit]
+Description=NginxPrometheusExporter
+StartLimitIntervalSec=600
+StartLimitBurst=10
+
+[Service]
+TimeoutStartSec=0
+User=nginx_prometheus_exporter
+Restart=on-failure
+RestartSec=30
+
+ExecStart=/usr/bin/nginx-prometheus-exporter
+
+[Install]
+WantedBy=multi-user.target
